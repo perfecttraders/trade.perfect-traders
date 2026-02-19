@@ -1,8 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-<HashRouter>
-  <App />
-</HashRouter>
+import { HashRouter } from 'react-router-dom'   // IMPORTANT
 import App from './App'
 import './styles.css'
 
