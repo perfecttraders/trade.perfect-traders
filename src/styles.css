@@ -1,0 +1,212 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7eef8;
+  background: #0a101d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #182640 0%, #0a101d 45%, #070b14 100%);
+  color: #e7eef8;
+}
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  background: rgba(14, 23, 40, 0.9);
+  border: 1px solid #223454;
+  border-radius: 14px;
+  padding: 1rem;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.auth-card {
+  width: min(440px, 100%);
+}
+
+.stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+}
+
+input,
+select,
+button {
+  border-radius: 10px;
+  border: 1px solid #2d4368;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+
+input,
+select {
+  background: #0c1629;
+  color: #ebf2ff;
+}
+
+.checkbox-row {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.tab {
+  background: #111f37;
+  color: #b9ccee;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: #fff;
+  border-color: #4f75b9;
+}
+
+.grid-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.balance-card,
+.prices-card,
+.trade-card {
+  grid-column: span 4;
+}
+
+.history-card,
+.open-trades-card {
+  grid-column: span 6;
+}
+
+.price-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.price-list li {
+  display: flex;
+  justify-content: space-between;
+  background: #0d1b33;
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.market-price {
+  margin: 0;
+  color: #bed3fb;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.btn {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: linear-gradient(120deg, #2f63d8, #5294ff);
+  color: #fff;
+}
+
+.btn-buy {
+  flex: 1;
+  background: #1d8f52;
+  color: #fff;
+}
+
+.btn-sell {
+  flex: 1;
+  background: #af3841;
+  color: #fff;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #223554;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.buy-text {
+  color: #48d089;
+}
+
+.sell-text {
+  color: #ff7982;
+}
+
+.muted {
+  color: #9cb3d8;
+}
+
+.error {
+  color: #ff8792;
+  margin: 0;
+}
+
+.settings-layout {
+  max-width: 620px;
+}
+
+@media (max-width: 900px) {
+  .balance-card,
+  .prices-card,
+  .trade-card,
+  .history-card,
+  .open-trades-card {
+    grid-column: span 12;
+  }
+}
