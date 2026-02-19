@@ -1,273 +1,327 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
-const symbols = ['EURUSD', 'GBPUSD', 'XAUUSD'];
+const LOCAL_USERS_KEY = 'pt_users';
+const LOCAL_ACTIVE_USER_KEY = 'pt_active_user';
+const LOCAL_SYMBOLS_KEY = 'pt_symbols';
+const LOCAL_HISTORY_KEY = 'pt_trade_history';
 
-const api = {
-  login: async (payload) => {
-    console.info('login payload', payload);
-    return { ok: true };
-  },
-  updateProfile: async (payload) => {
-    console.info('update profile payload', payload);
-    return { ok: true };
-  },
-  createOrder: async (payload) => {
-    console.info('order payload', payload);
-    return { ok: true, id: `TRD-${Date.now()}` };
+const DEFAULT_SYMBOLS = [
+  { name: 'EURUSD', price: 1.0832 },
+  { name: 'BTCUSD', price: 65210.54 },
+  { name: 'XAUUSD', price: 2358.4 }
+];
+
+const readStorage = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
   }
 };
 
-const initialPrices = {
-  EURUSD: 1.0832,
-  GBPUSD: 1.2718,
-  XAUUSD: 2358.4
-};
+const writeStorage = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
 function App() {
-  const [auth, setAuth] = useState(false);
-  const [activePage, setActivePage] = useState('dashboard');
-  const [profile, setProfile] = useState({
-    name: 'Trader One',
-    phone: '',
-    email: ''
-  });
-  const [prices, setPrices] = useState(initialPrices);
-  const [balance, setBalance] = useState(12500.23);
-  const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
-  const [lotSize, setLotSize] = useState('0.10');
-  const [openTrades, setOpenTrades] = useState([]);
-  const [tradeHistory, setTradeHistory] = useState([]);
-  const [error, setError] = useState('');
+  const [users, setUsers] = useState(() => readStorage(LOCAL_USERS_KEY, []));
+  const [activeUser, setActiveUser] = useState(() => readStorage(LOCAL_ACTIVE_USER_KEY, null));
+  const [symbols, setSymbols] = useState(() => readStorage(LOCAL_SYMBOLS_KEY, DEFAULT_SYMBOLS));
+  const [tradeHistory, setTradeHistory] = useState(() => readStorage(LOCAL_HISTORY_KEY, []));
+  const [balance, setBalance] = useState(15000);
+
+  useEffect(() => writeStorage(LOCAL_USERS_KEY, users), [users]);
+  useEffect(() => writeStorage(LOCAL_ACTIVE_USER_KEY, activeUser), [activeUser]);
+  useEffect(() => writeStorage(LOCAL_SYMBOLS_KEY, symbols), [symbols]);
+  useEffect(() => writeStorage(LOCAL_HISTORY_KEY, tradeHistory), [tradeHistory]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPrices((prev) => {
-        const next = { ...prev };
-        symbols.forEach((symbol) => {
-          const movement = (Math.random() - 0.5) * (symbol === 'XAUUSD' ? 1.4 : 0.002);
-          next[symbol] = Number((prev[symbol] + movement).toFixed(symbol === 'XAUUSD' ? 2 : 5));
-        });
-        return next;
-      });
-    }, 1500);
-
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      setSymbols((prev) =>
+        prev.map((symbol) => {
+          const variance = symbol.name.includes('BTC') ? 75 : symbol.name.includes('XAU') ? 1.2 : 0.0015;
+          const next = Number((symbol.price + (Math.random() - 0.5) * variance).toFixed(symbol.name.includes('BTC') ? 2 : 5));
+          return { ...symbol, price: Math.max(next, 0.0001) };
+        })
+      );
+    }, 1300);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleAuth = async (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const phone = formData.get('phone')?.toString().trim() || '';
-    const email = formData.get('email')?.toString().trim() || '';
-    const acceptedTerms = formData.get('terms') === 'on';
-
-    if (!acceptedTerms) {
-      setError('You must accept terms to create an account.');
-      return;
-    }
-
-    await api.login({ phone, email });
-    setProfile((prev) => ({ ...prev, phone, email }));
-    setError('');
-    setAuth(true);
+  const actions = {
+    signup: (data) => {
+      setUsers((prev) => [...prev, data]);
+      setActiveUser({ email: data.email, phone: data.phone });
+    },
+    login: (email) => {
+      const user = users.find((u) => u.email === email);
+      if (!user) return false;
+      setActiveUser({ email: user.email, phone: user.phone });
+      return true;
+    },
+    logout: () => setActiveUser(null),
+    placeTrade: (symbolName, side) => {
+      const symbol = symbols.find((item) => item.name === symbolName);
+      if (!symbol) return;
+      const record = {
+        id: `PT-${Date.now()}`,
+        symbol: symbol.name,
+        side,
+        price: symbol.price,
+        time: new Date().toLocaleString()
+      };
+      setTradeHistory((prev) => [record, ...prev].slice(0, 50));
+      const delta = side === 'BUY' ? -11.4 : 9.2;
+      setBalance((prev) => Number((prev + delta).toFixed(2)));
+    },
+    addSymbol: (name, price) => setSymbols((prev) => [...prev, { name: name.toUpperCase(), price }]),
+    setPrice: (name, price) =>
+      setSymbols((prev) => prev.map((symbol) => (symbol.name === name ? { ...symbol, price } : symbol)))
   };
-
-  const executeOrder = async (side) => {
-    const lot = Number(lotSize);
-    if (!lot || lot <= 0) {
-      setError('Lot size must be greater than zero.');
-      return;
-    }
-
-    const price = prices[selectedSymbol];
-    const trade = {
-      id: `TRD-${Math.floor(Math.random() * 900000 + 100000)}`,
-      symbol: selectedSymbol,
-      side,
-      lot: lot.toFixed(2),
-      price,
-      openedAt: new Date().toLocaleString()
-    };
-
-    await api.createOrder(trade);
-    setOpenTrades((prev) => [trade, ...prev].slice(0, 8));
-    setTradeHistory((prev) => [trade, ...prev].slice(0, 12));
-    const pnlImpact = (side === 'BUY' ? -1 : 1) * lot * 4.2;
-    setBalance((prev) => Number((prev + pnlImpact).toFixed(2)));
-    setError('');
-  };
-
-  const saveProfile = async (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const next = {
-      name: formData.get('name')?.toString().trim() || '',
-      phone: formData.get('phone')?.toString().trim() || '',
-      email: formData.get('email')?.toString().trim() || ''
-    };
-
-    await api.updateProfile(next);
-    setProfile(next);
-    setError('Profile updated successfully.');
-  };
-
-  if (!auth) {
-    return (
-      <main className="app-shell auth-shell">
-        <section className="card auth-card">
-          <h1>Perfect Traders</h1>
-          <p className="muted">Create your account and access the live market dashboard.</p>
-
-          <form onSubmit={handleAuth} className="stack">
-            <label>
-              Phone number
-              <input name="phone" type="tel" placeholder="+1 555 123 4567" required />
-            </label>
-
-            <label>
-              Email
-              <input name="email" type="email" placeholder="you@example.com" required />
-            </label>
-
-            <label className="checkbox-row">
-              <input name="terms" type="checkbox" />
-              <span>I accept all terms and conditions.</span>
-            </label>
-
-            {error && <p className="error">{error}</p>}
-
-            <button type="submit" className="btn btn-primary">
-              Create account
-            </button>
-          </form>
-        </section>
-      </main>
-    );
-  }
 
   return (
-    <main className="app-shell">
-      <header className="topbar card">
-        <h1>Perfect Traders</h1>
-        <nav className="nav-tabs">
-          <button
-            className={activePage === 'dashboard' ? 'tab active' : 'tab'}
-            onClick={() => setActivePage('dashboard')}
-          >
-            Dashboard
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/signup" element={<SignupPage onSignup={actions.signup} users={users} />} />
+      <Route path="/login" element={<LoginPage onLogin={actions.login} />} />
+      <Route
+        path="/dashboard"
+        element={
+          <Protected isAllowed={!!activeUser}>
+            <DashboardPage
+              activeUser={activeUser}
+              symbols={symbols}
+              balance={balance}
+              history={tradeHistory}
+              onTrade={actions.placeTrade}
+              onLogout={actions.logout}
+            />
+          </Protected>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <Protected isAllowed={!!activeUser}>
+            <AdminPage users={users} symbols={symbols} onAddSymbol={actions.addSymbol} onSetPrice={actions.setPrice} />
+          </Protected>
+        }
+      />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+function Protected({ isAllowed, children }) {
+  const location = useLocation();
+  if (!isAllowed) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  return children;
+}
+
+function HeaderNav({ title }) {
+  return (
+    <header className="topbar card">
+      <h1>{title}</h1>
+      <nav className="top-links">
+        <Link to="/login">Login</Link>
+        <Link to="/signup">Signup</Link>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/admin">Admin</Link>
+      </nav>
+    </header>
+  );
+}
+
+function SignupPage({ onSignup, users }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const phone = data.get('phone')?.toString().trim();
+    const email = data.get('email')?.toString().trim().toLowerCase();
+    const termsAccepted = data.get('terms') === 'on';
+
+    if (!termsAccepted) return setError('You must accept Terms & Conditions.');
+    if (users.some((user) => user.email === email)) return setError('Email already registered. Please login.');
+
+    onSignup({ phone, email, createdAt: Date.now() });
+    navigate('/dashboard');
+  };
+
+  return (
+    <main className="app-shell auth-shell">
+      <section className="auth-card card">
+        <HeaderNav title="Perfect Traders" />
+        <h2>Create account</h2>
+        <form onSubmit={submit} className="stack">
+          <label>
+            Phone number
+            <input name="phone" required placeholder="+1 555 123 4567" type="tel" />
+          </label>
+          <label>
+            Email
+            <input name="email" required placeholder="you@perfecttraders.com" type="email" />
+          </label>
+          <label className="checkbox-row">
+            <input name="terms" type="checkbox" />
+            <span>Accept Terms & Conditions</span>
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="btn btn-primary" type="submit">
+            Register
           </button>
-          <button
-            className={activePage === 'settings' ? 'tab active' : 'tab'}
-            onClick={() => setActivePage('settings')}
-          >
-            Settings
-          </button>
-        </nav>
-      </header>
-
-      {error && <p className="error global-error">{error}</p>}
-
-      {activePage === 'dashboard' ? (
-        <section className="grid-layout">
-          <article className="card balance-card">
-            <h2>Balance</h2>
-            <p className="balance-value">${balance.toLocaleString()}</p>
-            <small className="muted">Account: Demo / USD</small>
-          </article>
-
-          <article className="card prices-card">
-            <h2>Live prices</h2>
-            <ul className="price-list">
-              {symbols.map((symbol) => (
-                <li key={symbol}>
-                  <span>{symbol}</span>
-                  <strong>{prices[symbol]}</strong>
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <article className="card trade-card">
-            <h2>Trading UI</h2>
-            <label>
-              Symbol
-              <select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}>
-                {symbols.map((symbol) => (
-                  <option key={symbol} value={symbol}>
-                    {symbol}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <p className="market-price">
-              Market: <strong>{prices[selectedSymbol]}</strong>
-            </p>
-
-            <label>
-              Lot size
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={lotSize}
-                onChange={(event) => setLotSize(event.target.value)}
-              />
-            </label>
-
-            <div className="actions">
-              <button className="btn btn-buy" onClick={() => executeOrder('BUY')}>
-                Buy
-              </button>
-              <button className="btn btn-sell" onClick={() => executeOrder('SELL')}>
-                Sell
-              </button>
-            </div>
-          </article>
-
-          <article className="card open-trades-card">
-            <h2>Open trades</h2>
-            <Table rows={openTrades} emptyLabel="No open trades yet" />
-          </article>
-
-          <article className="card history-card">
-            <h2>Trade history</h2>
-            <Table rows={tradeHistory} emptyLabel="No trade history yet" />
-          </article>
-        </section>
-      ) : (
-        <section className="settings-layout card">
-          <h2>Settings</h2>
-          <p className="muted">Update your profile details and contact preferences.</p>
-
-          <form className="stack" onSubmit={saveProfile}>
-            <label>
-              Full name
-              <input name="name" type="text" defaultValue={profile.name} required />
-            </label>
-            <label>
-              Phone number
-              <input name="phone" type="tel" defaultValue={profile.phone} required />
-            </label>
-            <label>
-              Email
-              <input name="email" type="email" defaultValue={profile.email} required />
-            </label>
-
-            <button type="submit" className="btn btn-primary">
-              Save profile
-            </button>
-          </form>
-        </section>
-      )}
+        </form>
+      </section>
     </main>
   );
 }
 
-function Table({ rows, emptyLabel }) {
-  if (!rows.length) {
-    return <p className="muted">{emptyLabel}</p>;
-  }
+function LoginPage({ onLogin }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    const email = new FormData(event.currentTarget).get('email')?.toString().trim().toLowerCase();
+    if (!onLogin(email)) return setError('User not found. Please sign up first.');
+    navigate('/dashboard');
+  };
+
+  return (
+    <main className="app-shell auth-shell">
+      <section className="auth-card card">
+        <HeaderNav title="Perfect Traders" />
+        <h2>Login</h2>
+        <form onSubmit={submit} className="stack">
+          <label>
+            Email
+            <input name="email" type="email" required placeholder="you@perfecttraders.com" />
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="btn btn-primary" type="submit">
+            Sign In
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function DashboardPage({ activeUser, symbols, balance, history, onTrade, onLogout }) {
+  const [selectedSymbol, setSelectedSymbol] = useState(symbols[0]?.name || '');
+
+  useEffect(() => {
+    if (!symbols.some((s) => s.name === selectedSymbol)) setSelectedSymbol(symbols[0]?.name || '');
+  }, [symbols, selectedSymbol]);
+
+  return (
+    <main className="app-shell">
+      <HeaderNav title="Trading Dashboard" />
+      <section className="grid-layout">
+        <article className="card">
+          <h3>Account</h3>
+          <p>{activeUser.email}</p>
+          <p className="big-number">${balance.toLocaleString()}</p>
+          <button className="btn" onClick={onLogout}>Logout</button>
+        </article>
+
+        <article className="card">
+          <h3>Live symbols</h3>
+          <ul className="price-list">
+            {symbols.map((symbol) => (
+              <li key={symbol.name}>
+                <span>{symbol.name}</span>
+                <strong>{symbol.price}</strong>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="card">
+          <h3>Trade actions</h3>
+          <label>
+            Symbol
+            <select value={selectedSymbol} onChange={(event) => setSelectedSymbol(event.target.value)}>
+              {symbols.map((symbol) => (
+                <option key={symbol.name} value={symbol.name}>
+                  {symbol.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="actions">
+            <button className="btn btn-buy" onClick={() => onTrade(selectedSymbol, 'BUY')}>Buy</button>
+            <button className="btn btn-sell" onClick={() => onTrade(selectedSymbol, 'SELL')}>Sell</button>
+          </div>
+        </article>
+
+        <article className="card full">
+          <h3>Trade history</h3>
+          <TradeTable rows={history} />
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function AdminPage({ users, symbols, onAddSymbol, onSetPrice }) {
+  const [symbolName, setSymbolName] = useState('');
+  const [symbolPrice, setSymbolPrice] = useState('');
+
+  const symbolNames = useMemo(() => symbols.map((s) => s.name), [symbols]);
+
+  return (
+    <main className="app-shell">
+      <HeaderNav title="Admin Panel" />
+      <section className="grid-layout">
+        <article className="card">
+          <h3>Add symbols</h3>
+          <input value={symbolName} placeholder="ETHUSD" onChange={(e) => setSymbolName(e.target.value.toUpperCase())} />
+          <input value={symbolPrice} placeholder="3245.9" type="number" onChange={(e) => setSymbolPrice(e.target.value)} />
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              if (!symbolName || !symbolPrice || symbolNames.includes(symbolName)) return;
+              onAddSymbol(symbolName, Number(symbolPrice));
+              setSymbolName('');
+              setSymbolPrice('');
+            }}
+          >
+            Add Symbol
+          </button>
+        </article>
+
+        <article className="card">
+          <h3>Set prices</h3>
+          {symbols.map((symbol) => (
+            <div key={symbol.name} className="inline-control">
+              <span>{symbol.name}</span>
+              <input
+                type="number"
+                value={symbol.price}
+                onChange={(event) => onSetPrice(symbol.name, Number(event.target.value))}
+              />
+            </div>
+          ))}
+        </article>
+
+        <article className="card full">
+          <h3>Manage users</h3>
+          <ul className="user-list">
+            {users.length === 0 ? <li>No users registered yet.</li> : users.map((u) => <li key={u.email}>{u.email} • {u.phone}</li>)}
+          </ul>
+          <h3>Settings</h3>
+          <p className="muted">API connection settings and role permissions can be wired here later.</p>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function TradeTable({ rows }) {
+  if (!rows.length) return <p className="muted">No trades yet.</p>;
 
   return (
     <div className="table-wrap">
@@ -277,20 +331,18 @@ function Table({ rows, emptyLabel }) {
             <th>ID</th>
             <th>Symbol</th>
             <th>Side</th>
-            <th>Lot</th>
             <th>Price</th>
             <th>Time</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((trade) => (
-            <tr key={trade.id}>
-              <td>{trade.id}</td>
-              <td>{trade.symbol}</td>
-              <td className={trade.side === 'BUY' ? 'buy-text' : 'sell-text'}>{trade.side}</td>
-              <td>{trade.lot}</td>
-              <td>{trade.price}</td>
-              <td>{trade.openedAt}</td>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.id}</td>
+              <td>{row.symbol}</td>
+              <td className={row.side === 'BUY' ? 'buy-text' : 'sell-text'}>{row.side}</td>
+              <td>{row.price}</td>
+              <td>{row.time}</td>
             </tr>
           ))}
         </tbody>
