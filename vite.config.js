@@ -3,10 +3,5 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/trade.perfect-traders/',
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    emptyOutDir: true
-  }
-});
+  base: '/trade.perfect-traders/'  // ← VERY IMPORTANT
+})

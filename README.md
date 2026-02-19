@@ -51,7 +51,6 @@ This project is configured to avoid common GitHub Pages issues:
 - Uses `HashRouter` to prevent direct-route 404s on static hosting.
 - Build outputs to `dist/` with assets in `dist/assets/`.
 - `public/favicon.svg` included and linked from `index.html`.
-- GitHub Actions workflow at `.github/workflows/deploy.yml` builds and deploys `dist` automatically (uses `npm ci` when a lockfile exists, otherwise `npm install`).
-- Workflow adds `dist/404.html` SPA fallback and `dist/.nojekyll` for extra Pages reliability.
+- GitHub Actions workflow at `.github/workflows/deploy.yml` builds and deploys `dist` automatically.
 
 No manual path rewrites are required after cloning.
