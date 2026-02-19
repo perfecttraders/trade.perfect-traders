@@ -32,7 +32,7 @@ Production-ready React 18 + Vite frontend for **Perfect Traders**, configured fo
 ## Local development
 
 ```bash
-npm ci
+npm install
 npm run dev
 ```
 
@@ -52,8 +52,5 @@ This project is configured to avoid common GitHub Pages issues:
 - Build outputs to `dist/` with assets in `dist/assets/`.
 - `public/favicon.svg` included and linked from `index.html`.
 - GitHub Actions workflow at `.github/workflows/deploy.yml` builds and deploys `dist` automatically.
-- Workflow adds `dist/404.html` SPA fallback and `dist/.nojekyll` for extra Pages reliability.
 
 No manual path rewrites are required after cloning.
-
-Tip: CI and local setup use the committed `package-lock.json` for reproducible dependency installs.

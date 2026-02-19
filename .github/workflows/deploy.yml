@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -32,12 +32,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Add SPA fallback page
-        run: cp dist/index.html dist/404.html
-
-      - name: Add .nojekyll
-        run: touch dist/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
